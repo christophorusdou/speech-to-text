@@ -1,0 +1,80 @@
+# Decisions & Lessons Learned
+
+## Why a custom client instead of AudioWhisper?
+
+AudioWhisper is a 25K-line app with issues on our setup:
+- ATS (App Transport Security) blocked plain HTTP to the L40S server
+- Keychain password prompts on every launch
+- Complex codebase made debugging difficult
+
+Our client is ~300 lines, does exactly what we need, and we control it entirely.
+
+## macOS app signing and permissions
+
+### The problem
+A bare SPM executable (`swift build` output) can't get macOS microphone permission. Even if you grant it in System Settings, CoreAudio silently fails with `Could not find default device`.
+
+### Why
+macOS TCC (Transparency, Consent, and Control) ties permissions to **code-signed app bundles** identified by `CFBundleIdentifier`. A bare executable has no bundle identity, so macOS can't track its permissions.
+
+### The fix
+1. Wrap the binary in a `.app` bundle with `Info.plist` (containing `CFBundleIdentifier`)
+2. Ad-hoc code sign: `codesign --force --deep --sign - SpeechToText.app`
+3. Launch via `open SpeechToText.app` (not the binary directly)
+
+Running the binary directly (`Contents/MacOS/SpeechToText`) bypasses the bundle identity and permissions fail again.
+
+### Accessibility permission
+Simulating Cmd+V paste via `CGEvent` requires Accessibility permission. This must be granted manually in System Settings > Privacy & Security > Accessibility. The app bundle must be listed there.
+
+## Audio format: WAV not M4A
+
+The speaches server (faster-whisper) rejected M4A files with HTTP 415. WAV (16-bit PCM, 16kHz, mono) works reliably and is what Whisper natively processes internally anyway. The files are larger but for short recordings (<30s) the size difference is negligible.
+
+## Model comparison
+
+Tested with real human speech (Open Speech Repository):
+
+| Model | Time | Punctuation | Casing | Word accuracy |
+|-------|------|-------------|--------|---------------|
+| `deepdml/faster-whisper-large-v3-turbo-ct2` | 0.86s | none | lowercase | "park truck" (wrong) |
+| `Systran/faster-whisper-large-v3` | 1.58s | full sentences | proper | "parked truck" (correct) |
+
+The turbo model is a distilled version — faster but trades accuracy. Large-v3 is the same as OpenAI's whisper-large-v3, just in CTranslate2 format for faster-whisper.
+
+### Language hint
+Sending `language=en` with the request significantly improves accuracy. Without it, Whisper spends time on language detection and can make more errors.
+
+### Model download
+speaches doesn't auto-download models. Use the API:
+```bash
+curl -X POST http://localhost:8000/v1/models/Systran/faster-whisper-large-v3
+```
+Models are cached in a Docker volume (`hf-cache`).
+
+## Credential management
+
+### Pattern: macOS Keychain for all secrets
+
+Never hardcode tokens in source, remote URLs, or config files. Use macOS Keychain:
+
+```bash
+# Store
+security add-generic-password -s "<service>" -a "<account>" -w "<token>" -U
+
+# Retrieve
+security find-generic-password -s "<service>" -a "<account>" -w
+```
+
+### Git HTTPS credentials
+`git config --global credential.helper osxkeychain` stores git credentials in Keychain. The `git-credential-osxkeychain` binary creates Keychain entries it can later read without prompting — macOS Keychain allows the creating binary silent access to its own entries.
+
+### Forgejo API token
+Stored in Keychain as service `forgejo-api`. Shell helper `forgejo-token` in `~/.zshenv`:
+```bash
+curl -H "Authorization: token $(forgejo-token)" https://git.cdrift.com/api/v1/...
+```
+
+## Push mirror (Forgejo → GitHub)
+
+Configured via Forgejo API: sync on commit + every 8h. Same pattern as ticket-pointing repo. Delete branches from Forgejo (source), not GitHub — the mirror will re-push deleted branches if you only delete on the target.
