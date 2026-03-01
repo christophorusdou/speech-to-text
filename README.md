@@ -20,7 +20,7 @@ Mac (AudioWhisper)                         L40S Server (speaches)
 
 - **Server**: [speaches](https://github.com/speaches-ai/speaches) — OpenAI API-compatible Whisper server with GPU acceleration
 - **Client**: [AudioWhisper](https://github.com/mazdak/AudioWhisper) — native macOS menu bar app
-- **Model**: `Systran/faster-whisper-large-v3-turbo` — 4x faster than original Whisper, ~6GB VRAM
+- **Model**: `deepdml/faster-whisper-large-v3-turbo-ct2` — 4x faster than original Whisper, ~6GB VRAM
 
 ## Quick Start
 
@@ -35,14 +35,14 @@ docker compose up -d
 ### Client (Mac)
 
 ```bash
-brew install audiowhisper
+brew tap mazdak/tap && brew install audiowhisper
 ```
 
 Configure AudioWhisper:
 - Engine: **OpenAI**
 - Endpoint: `http://150.1.8.167:8000`
 - API key: any non-empty string
-- Model: `Systran/faster-whisper-large-v3-turbo`
+- Model: `deepdml/faster-whisper-large-v3-turbo-ct2`
 - Enable **Express Mode** for auto-paste
 
 See [docs/setup.md](docs/setup.md) for detailed instructions.

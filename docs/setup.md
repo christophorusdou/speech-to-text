@@ -10,18 +10,28 @@ cd /shared/projects/speech-to-text/server
 docker compose up -d
 ```
 
-First run downloads the model (~3GB). Check progress:
+Check it's running:
 
 ```bash
 docker compose logs -f
 ```
 
-### 2. Verify server
+### 2. Download the model
+
+speaches doesn't auto-download models. Install it via the API:
+
+```bash
+curl -X POST http://localhost:8000/v1/models/deepdml/faster-whisper-large-v3-turbo-ct2
+```
+
+This downloads ~3GB. The model is cached in a Docker volume for persistence.
+
+### 3. Verify server
 
 ```bash
 curl http://localhost:8000/v1/audio/transcriptions \
   -F file=@test.wav \
-  -F model=Systran/faster-whisper-large-v3-turbo
+  -F model=deepdml/faster-whisper-large-v3-turbo-ct2
 ```
 
 Or from Mac:
@@ -29,7 +39,7 @@ Or from Mac:
 ```bash
 curl http://150.1.8.167:8000/v1/audio/transcriptions \
   -F file=@test.wav \
-  -F model=Systran/faster-whisper-large-v3-turbo
+  -F model=deepdml/faster-whisper-large-v3-turbo-ct2
 ```
 
 ## Client Setup (Mac)
@@ -37,7 +47,7 @@ curl http://150.1.8.167:8000/v1/audio/transcriptions \
 ### 1. Install AudioWhisper
 
 ```bash
-brew install audiowhisper
+brew tap mazdak/tap && brew install audiowhisper
 ```
 
 ### 2. Grant permissions
@@ -56,7 +66,7 @@ Open AudioWhisper from the menu bar:
 | Engine | OpenAI |
 | Custom endpoint | `http://150.1.8.167:8000` |
 | API key | `placeholder` (any non-empty string) |
-| Model | `Systran/faster-whisper-large-v3-turbo` |
+| Model | `deepdml/faster-whisper-large-v3-turbo-ct2` |
 | Express Mode | Enabled |
 | Hotkey | Your preference (default: Fn hold-to-talk) |
 
