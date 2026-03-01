@@ -2,7 +2,7 @@ import Foundation
 
 class TranscriptionService {
     static var endpoint: String {
-        UserDefaults.standard.string(forKey: "endpoint") ?? "http://150.1.8.167:8000"
+        UserDefaults.standard.string(forKey: "endpoint") ?? "http://localhost:8000"
     }
 
     var model: String = UserDefaults.standard.string(forKey: "model")
