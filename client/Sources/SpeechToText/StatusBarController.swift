@@ -10,13 +10,25 @@ class StatusBarController {
     }
 
     var onQuit: (() -> Void)?
+    var onModelChanged: ((String) -> Void)?
 
     private let statusItem: NSStatusItem
+    private var modelMenu: NSMenu?
 
     init() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         updateIcon()
         buildMenu()
+    }
+
+    func setAvailableModels(_ models: [String], current: String) {
+        modelMenu?.removeAllItems()
+        for model in models {
+            let item = NSMenuItem(title: model, action: #selector(modelSelected(_:)), keyEquivalent: "")
+            item.target = self
+            item.state = (model == current) ? .on : .off
+            modelMenu?.addItem(item)
+        }
     }
 
     private func updateIcon() {
@@ -43,11 +55,28 @@ class StatusBarController {
 
         menu.addItem(.separator())
 
+        // Model submenu
+        let modelSubmenu = NSMenu()
+        self.modelMenu = modelSubmenu
+        let modelItem = NSMenuItem(title: "Model", action: nil, keyEquivalent: "")
+        modelItem.submenu = modelSubmenu
+        menu.addItem(modelItem)
+
+        menu.addItem(.separator())
+
         let quitItem = NSMenuItem(title: "Quit", action: #selector(quitClicked), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
 
         statusItem.menu = menu
+    }
+
+    @objc private func modelSelected(_ sender: NSMenuItem) {
+        let model = sender.title
+        // Update checkmarks
+        modelMenu?.items.forEach { $0.state = .off }
+        sender.state = .on
+        onModelChanged?(model)
     }
 
     @objc private func quitClicked() {

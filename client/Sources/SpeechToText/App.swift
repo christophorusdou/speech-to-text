@@ -28,11 +28,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusBarController.onQuit = {
             NSApplication.shared.terminate(nil)
         }
+        statusBarController.onModelChanged = { [weak self] model in
+            self?.transcriptionService.model = model
+            UserDefaults.standard.set(model, forKey: "model")
+        }
 
         // Request mic permission on launch
         audioRecorder.requestPermission { granted in
             if !granted {
                 NSLog("Microphone permission not granted")
+            }
+        }
+
+        // Fetch available models from server
+        Task {
+            let models = await transcriptionService.fetchModels()
+            await MainActor.run {
+                statusBarController.setAvailableModels(models, current: transcriptionService.model)
             }
         }
     }

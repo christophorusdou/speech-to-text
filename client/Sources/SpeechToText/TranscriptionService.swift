@@ -5,7 +5,9 @@ class TranscriptionService {
         UserDefaults.standard.string(forKey: "endpoint") ?? "http://150.1.8.167:8000"
     }
 
-    private let model = "deepdml/faster-whisper-large-v3-turbo-ct2"
+    var model: String = UserDefaults.standard.string(forKey: "model")
+        ?? "deepdml/faster-whisper-large-v3-turbo-ct2"
+    var language: String = UserDefaults.standard.string(forKey: "language") ?? "en"
 
     func transcribe(fileURL: URL) async throws -> String {
         let url = URL(string: "\(Self.endpoint)/v1/audio/transcriptions")!
@@ -21,6 +23,9 @@ class TranscriptionService {
 
         // model field
         body.appendMultipart(boundary: boundary, name: "model", value: model)
+
+        // language hint — improves accuracy vs auto-detect
+        body.appendMultipart(boundary: boundary, name: "language", value: language)
 
         // audio file — use fixed filename so server detects WAV by extension
         body.appendMultipart(boundary: boundary, name: "file",
@@ -44,6 +49,26 @@ class TranscriptionService {
         let result = try JSONDecoder().decode(TranscriptionResponse.self, from: data)
         return result.text
     }
+
+    func fetchModels() async -> [String] {
+        guard let url = URL(string: "\(Self.endpoint)/v1/models") else { return [model] }
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let response = try JSONDecoder().decode(ModelsResponse.self, from: data)
+            let models = response.data.map { $0.id }
+            return models.isEmpty ? [model] : models
+        } catch {
+            return [model]
+        }
+    }
+}
+
+private struct ModelsResponse: Decodable {
+    let data: [ModelEntry]
+}
+
+private struct ModelEntry: Decodable {
+    let id: String
 }
 
 enum TranscriptionError: LocalizedError {
