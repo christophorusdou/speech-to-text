@@ -75,6 +75,28 @@ Stored in Keychain as service `forgejo-api`. Shell helper `forgejo-token` in `~/
 curl -H "Authorization: token $(forgejo-token)" https://git.cdrift.com/api/v1/...
 ```
 
+## LLM post-processing with Ollama
+
+### Why qwen3:8b?
+
+Qwen 3 8B is a fast instruction-following model with strong text correction capabilities. At 8B parameters it loads quickly (~5GB VRAM), runs inference in <1 second, and auto-unloads after idle — coexisting well with Whisper on the L40S's 48GB VRAM.
+
+### Graceful fallback design
+
+LLM post-processing is entirely optional and fault-tolerant:
+- Disabled by default (toggle in menu bar)
+- 10-second timeout prevents stalls
+- Any failure (network, timeout, bad response) silently falls back to the original Whisper text
+- The gear icon (⚙) shows when LLM processing is active
+
+### Vocabulary prompt vs LLM correction
+
+Two complementary approaches:
+- **Vocabulary prompt**: Biases Whisper's decoder at recognition time. Best for ambiguous terms where Whisper has multiple valid interpretations (e.g., "Claude" vs "cloud"). Limited to 224 tokens.
+- **LLM correction**: Post-processes the text after Whisper. Catches genuine misrecognitions that the prompt can't fix (e.g., "clod code" → "Claude Code"). Adds ~0.5-1s latency.
+
+Use both together for best results with technical vocabulary.
+
 ## Push mirror (Forgejo → GitHub)
 
 Configured via Forgejo API: sync on commit + every 8h. Same pattern as ticket-pointing repo. Delete branches from Forgejo (source), not GitHub — the mirror will re-push deleted branches if you only delete on the target.

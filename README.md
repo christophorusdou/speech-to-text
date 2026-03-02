@@ -7,22 +7,28 @@ Hold Cmd+Shift+Space, speak, release — transcribed text appears at the cursor 
 ## Architecture
 
 ```
-Mac (SpeechToText.app)                     L40S Server (speaches)
+Mac (SpeechToText.app)                     L40S Server
 ┌─────────────────┐                        ┌──────────────────────┐
-│ Hold ⌘⇧Space    │                        │ Docker container     │
-│ Record 16kHz WAV│──HTTP POST audio──────▶│ speaches (port 8000) │
-│ Release hotkey   │◀──JSON {"text":"..."}──│ faster-whisper       │
-│ Clipboard + ⌘V  │                        │ large-v3 model       │
-└─────────────────┘                        └──────────────────────┘
+│ Hold ⌘⇧Space    │                        │ speaches (port 8000) │
+│ Record 16kHz WAV│──HTTP POST audio──────▶│ faster-whisper       │
+│ Release hotkey   │◀──JSON {"text":"..."}──│ large-v3 model       │
+│                 │                        ├──────────────────────┤
+│ LLM correction  │──POST /v1/chat/───────▶│ ollama (port 11434)  │
+│ (optional)      │◀──corrected text───────│ qwen3:8b           │
+│                 │                        └──────────────────────┘
+│ Clipboard + ⌘V  │
+└─────────────────┘
 ```
 
 ## Components
 
 - **Server**: [speaches](https://github.com/speaches-ai/speaches) — OpenAI API-compatible Whisper server with GPU acceleration
-- **Client**: `client/` — ~300 line Swift menu bar app (this repo)
-- **Models**: Selectable from menu bar
+- **Server**: [Ollama](https://ollama.com) — local LLM for post-processing corrections (optional)
+- **Client**: `client/` — Swift menu bar app (this repo)
+- **Whisper models**: Selectable from menu bar
   - `Systran/faster-whisper-large-v3` — best accuracy, proper punctuation and casing (~1.5s)
   - `deepdml/faster-whisper-large-v3-turbo-ct2` — faster, less accurate (~0.8s)
+- **LLM model**: `qwen3:8b` — fixes technical terms and jargon in transcription output
 
 ## Quick Start
 
@@ -33,9 +39,12 @@ ssh l40s
 cd /shared/projects/speech-to-text/server
 docker compose up -d
 
-# Download models
+# Download Whisper models
 curl -X POST http://localhost:8000/v1/models/Systran/faster-whisper-large-v3
 curl -X POST http://localhost:8000/v1/models/deepdml/faster-whisper-large-v3-turbo-ct2
+
+# Download LLM for post-processing (optional, runs natively on host)
+ollama pull qwen3:8b
 ```
 
 ### Client

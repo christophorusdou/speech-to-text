@@ -15,5 +15,9 @@ cp Info.plist "$BUNDLE_DIR/Contents/Info.plist"
 
 codesign --force --deep --sign - "$BUNDLE_DIR"
 
+# Clear stale Accessibility TCC entry — ad-hoc signing changes the signature
+# each build, so the old entry silently stops working. This forces a fresh prompt.
+tccutil reset Accessibility com.cdrift.SpeechToText 2>/dev/null || true
+
 echo "Built $BUNDLE_DIR"
 echo "Run with: open $BUNDLE_DIR"

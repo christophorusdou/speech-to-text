@@ -14,5 +14,8 @@ services:
               capabilities: [gpu]
     restart: unless-stopped
 
+  # Ollama runs natively on the host (port 11434) — already installed with GPU access.
+  # Pull models with: ollama pull qwen3:8b
+
 volumes:
   hf-cache:

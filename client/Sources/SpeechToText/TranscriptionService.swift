@@ -8,6 +8,7 @@ class TranscriptionService {
     var model: String = UserDefaults.standard.string(forKey: "model")
         ?? "deepdml/faster-whisper-large-v3-turbo-ct2"
     var language: String = UserDefaults.standard.string(forKey: "language") ?? "en"
+    var prompt: String = UserDefaults.standard.string(forKey: "prompt") ?? ""
 
     func transcribe(fileURL: URL) async throws -> String {
         let url = URL(string: "\(Self.endpoint)/v1/audio/transcriptions")!
@@ -26,6 +27,11 @@ class TranscriptionService {
 
         // language hint — improves accuracy vs auto-detect
         body.appendMultipart(boundary: boundary, name: "language", value: language)
+
+        // vocabulary prompt — biases recognition toward these terms
+        if !prompt.isEmpty {
+            body.appendMultipart(boundary: boundary, name: "prompt", value: prompt)
+        }
 
         // audio file — use fixed filename so server detects WAV by extension
         body.appendMultipart(boundary: boundary, name: "file",

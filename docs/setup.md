@@ -16,7 +16,7 @@ Check it's running:
 docker compose logs -f
 ```
 
-### 2. Download models
+### 2. Download Whisper models
 
 speaches doesn't auto-download models. Install via the API:
 
@@ -30,7 +30,27 @@ curl -X POST http://localhost:8000/v1/models/Systran/faster-whisper-large-v3
 
 Each download is ~3GB. Models are cached in a Docker volume for persistence.
 
-### 3. Verify server
+### 3. Set up Ollama (optional — for LLM post-processing)
+
+Ollama runs natively on the L40S host (already installed, systemd service). Pull the correction model:
+
+```bash
+ssh l40s "ollama pull qwen3:8b"
+```
+
+Verify:
+
+```bash
+curl http://<server-ip>:11434/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"qwen3:8b","messages":[{"role":"user","content":"Fix: clod code"}]}'
+```
+
+The model uses ~5GB VRAM when loaded and auto-unloads after idle. With ~42GB free on the L40S, this coexists fine with Whisper.
+
+Note: Ollama must listen on `0.0.0.0` (not just localhost) for remote access. Set `OLLAMA_HOST=0.0.0.0` in `/etc/systemd/system/ollama.service` under `[Service]`.
+
+### 4. Verify Whisper server
 
 ```bash
 curl http://localhost:8000/v1/audio/transcriptions \
@@ -75,6 +95,23 @@ When prompted, allow:
 ### 6. Select model
 
 Click the menu bar icon > Model > choose between turbo (faster) and large-v3 (more accurate).
+
+### 7. Configure vocabulary prompt (optional)
+
+Click "Edit Vocabulary..." in the menu bar to add terms Whisper often misrecognizes. This biases the decoder toward your vocabulary (e.g., "Claude Code, Terraform, Kubernetes").
+
+### 8. Enable LLM post-processing (optional)
+
+Toggle "LLM Post-Processing" in the menu bar. Requires Ollama running on the server (step 3).
+
+Configure the LLM endpoint if it differs from the default:
+
+```bash
+defaults write com.cdrift.SpeechToText llmEndpoint "http://<server-ip>:11434"
+defaults write com.cdrift.SpeechToText llmModel "qwen3:8b"
+```
+
+When enabled, transcriptions are sent through the LLM to fix technical terms before pasting. If the LLM is unreachable, the original transcription is used.
 
 ## Git Credentials (Forgejo)
 
