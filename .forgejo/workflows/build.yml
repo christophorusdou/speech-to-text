@@ -1,0 +1,51 @@
+name: Build macOS Client
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and sign
+        working-directory: client
+        run: ./bundle.sh
+
+      - name: Package
+        working-directory: client
+        run: |
+          VERSION=$(git describe --tags --always)
+          cd .build
+          zip -r "SpeechToText-${VERSION}.zip" SpeechToText.app
+          mv "SpeechToText-${VERSION}.zip" "$GITHUB_WORKSPACE/"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpeechToText-${{ github.sha }}
+          path: "*.zip"
+
+      - name: Create release
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          ZIP=$(ls *.zip | head -1)
+
+          RELEASE=$(curl -sf -X POST \
+            -H "Authorization: token ${{ secrets.RELEASE_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"tag_name\":\"${TAG}\",\"name\":\"${TAG}\"}" \
+            "https://git.cdrift.com/api/v1/repos/${{ github.repository }}/releases")
+
+          RELEASE_ID=$(echo "$RELEASE" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+
+          curl -sf -X POST \
+            -H "Authorization: token ${{ secrets.RELEASE_TOKEN }}" \
+            -F "attachment=@${ZIP}" \
+            "https://git.cdrift.com/api/v1/repos/${{ github.repository }}/releases/${RELEASE_ID}/assets?name=${ZIP}"
