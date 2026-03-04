@@ -151,6 +151,35 @@ macOS Keychain uses per-item access control lists (ACLs). When `git-credential-o
 
 You can inspect this in Keychain Access.app: find the `git.cdrift.com` entry > Get Info > Access Control.
 
+## CI/CD (Forgejo Actions)
+
+The project builds automatically on every push to `main` via Forgejo Actions on the Mac Mini runner.
+
+### How it works
+
+1. Mac Mini (192.168.130.170) runs a native macOS Forgejo runner (`macos-arm64:host` label)
+2. On push: checkout → `./bundle.sh` → zip `.app` → upload artifact
+3. On tagged release (`v*`): creates Forgejo release with zip attached
+
+### Creating a release
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The workflow creates a release at `https://git.cdrift.com/chris/speech-to-text/releases` with the zipped app.
+
+### Requirements
+
+The release step uses `RELEASE_TOKEN` secret — set in Forgejo repo Settings → Secrets and Variables → Actions. Must be a Forgejo API token with repo write scope.
+
+### Known limitations
+
+- Mac Mini sleeps 8pm–8am: jobs queued overnight run at 8am
+- `upload-artifact` must use `@v3` (v4 uses GitHub artifact API, incompatible with Forgejo)
+- First build after SPM cache clear takes ~13 minutes; subsequent builds ~30 seconds
+
 ## Troubleshooting
 
 - **No response**: Check server is running: `ssh l40s "docker ps | grep speaches"`
@@ -158,6 +187,7 @@ You can inspect this in Keychain Access.app: find the `git.cdrift.com` entry > G
 - **Permission errors**: Check System Settings > Privacy & Security on Mac
 - **Empty recordings (4KB WAV)**: Microphone permission not granted, or app not code-signed — rebuild with `./bundle.sh`
 - **"Could not find default device"**: Relaunch via `open .build/SpeechToText.app` (not the binary directly)
+- **Accessibility shows enabled but paste doesn't work**: Ad-hoc signing changes the code signature on each build. `bundle.sh` runs `tccutil reset` automatically, but you must re-grant Accessibility permission after rebuilding. The app prompts on launch if not granted.
 
 ## Security Notes
 

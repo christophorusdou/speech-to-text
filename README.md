@@ -66,9 +66,40 @@ Grant Microphone and Accessibility permissions when prompted.
 
 See [docs/setup.md](docs/setup.md) for detailed instructions.
 
+## CI/CD
+
+Forgejo Actions builds every push to `main` and every PR on the Mac Mini runner (native macOS ARM64):
+
+- Builds and ad-hoc signs the `.app` bundle
+- Uploads zipped artifact to the workflow run
+- On tagged releases (`v*`): creates a Forgejo release with the zip attached
+
+Workflow: [`.forgejo/workflows/build.yml`](.forgejo/workflows/build.yml)
+
+To create a release:
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+## Configuration
+
+All settings via `defaults write com.cdrift.SpeechToText`:
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `endpoint` | `http://localhost:8000` | Whisper server URL |
+| `model` | `deepdml/faster-whisper-large-v3-turbo-ct2` | Whisper model (also selectable from menu) |
+| `language` | `en` | Language hint for Whisper |
+| `prompt` | _(empty)_ | Vocabulary prompt to bias recognition |
+| `llmEnabled` | `false` | Enable LLM post-processing |
+| `llmEndpoint` | `http://localhost:11434` | Ollama server URL |
+| `llmModel` | `qwen3:8b` | Ollama model for corrections |
+
 ## Repository
 
 - `server/` — speaches Docker Compose config
 - `client/` — Swift menu bar app (SPM, single dependency: [HotKey](https://github.com/soffes/HotKey))
+- `.forgejo/workflows/` — CI/CD workflow for macOS builds
 - `docs/` — setup guide, decisions, troubleshooting
 - Hosted on [Forgejo](https://git.cdrift.com/chris/speech-to-text), mirrored to [GitHub](https://github.com/christophorusdou/speech-to-text)

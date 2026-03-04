@@ -97,6 +97,40 @@ Two complementary approaches:
 
 Use both together for best results with technical vocabulary.
 
+## TCC staleness on rebuild
+
+### The problem
+
+macOS TCC (Transparency, Consent, and Control) ties permissions to a code signature. Ad-hoc signing (`codesign --sign -`) generates a new signature every build. After rebuilding, the old TCC entry in System Settings still shows "enabled" but silently rejects the new binary. Paste via Cmd+V stops working with no error.
+
+### The fix
+
+Two-part solution in `bundle.sh` and `App.swift`:
+
+1. **`bundle.sh`**: Runs `tccutil reset Accessibility com.cdrift.SpeechToText` after codesign. This clears the stale TCC entry so macOS doesn't silently reject the new signature.
+
+2. **`App.swift`**: Calls `AXIsProcessTrustedWithOptions` with `kAXTrustedCheckOptionPrompt: true` on launch. This prompts the user to re-grant Accessibility if not currently trusted.
+
+Without both, the user has to manually find and remove the app from System Settings > Privacy & Security > Accessibility, then re-add it.
+
+## CI/CD with Forgejo Actions
+
+### Why a Mac Mini runner?
+
+Swift builds require macOS (Xcode CLI tools, codesign, Apple frameworks). The Mac Mini M4 runs a native Forgejo runner directly on the host (not containerized) with the `macos-arm64:host` label.
+
+### upload-artifact@v3, not v4
+
+`actions/upload-artifact@v4` uses GitHub's new artifact service API which detects Forgejo as GHES and refuses to run. `@v3` uses the older HTTP-based upload that Forgejo supports.
+
+### Release via Forgejo API
+
+Tagged pushes (`v*`) create releases via the Forgejo REST API and attach the zipped `.app` bundle. This uses a `RELEASE_TOKEN` secret (Forgejo API token with repo write scope).
+
+### Sleep and CI timing
+
+The Mac Mini sleeps 8pm–8am. Jobs queued during sleep are picked up when the runner reconnects at 8am. The runner uses launchd KeepAlive + ThrottleInterval for automatic restart.
+
 ## Push mirror (Forgejo → GitHub)
 
 Configured via Forgejo API: sync on commit + every 8h. Same pattern as ticket-pointing repo. Delete branches from Forgejo (source), not GitHub — the mirror will re-push deleted branches if you only delete on the target.
